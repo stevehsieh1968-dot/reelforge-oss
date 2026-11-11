@@ -880,5 +880,5 @@ async function recoverJobs() {
 
 await recoverJobs();
 app.listen(config.port, () => {
-  console.log(`短影工坊已啟動：http://localhost:${config.port}  ${config.mock ? '（模擬模式：不呼叫 AI、不花錢）' : `（文案 ${config.textProvider}／配音 ${config.ttsProvider}／畫面 ${config.videoProvider}／補圖 ${config.imageProvider}／對嘴 ${config.lipsyncProvider}）`}`);
+  console.log(`短影工坊 平價版已啟動：http://localhost:${config.port}  ${config.mock ? '（模擬模式：不呼叫 AI、不花錢）' : `（文案 ${config.textProvider}／配音 ${config.ttsProvider}／畫面 ${config.videoProvider}／補圖 ${config.imageProvider}／對嘴 ${config.lipsyncProvider}）`}`);
 });

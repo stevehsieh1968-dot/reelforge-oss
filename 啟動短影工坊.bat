@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title ReelForge OSS
+title 短影工坊 平價版
 cd /d "%~dp0"
 echo ============================================================
-echo   短影工坊 開源省錢版：安裝、設定、啟動 一次完成
+echo   短影工坊 平價版：安裝、設定、啟動 一次完成
 echo ============================================================
 taskkill /f /im node.exe >nul 2>&1
 taskkill /f /fi "WINDOWTITLE eq ReelForge-TTS*" >nul 2>&1
@@ -85,11 +85,11 @@ rem ===== 5. 啟動 =====
 echo 啟動本機配音服務...
 start "ReelForge-TTS" /min tts-server\.venv\Scripts\python.exe tts-server\server.py
 echo.
-echo ==== 短影工坊（開源省錢版）啟動中，請不要關閉這個視窗 ====
+echo ==== 短影工坊 平價版 啟動中，請不要關閉這個視窗 ====
 echo ==== 關閉這個視窗就會停止 ====
 echo.
 start "" cmd /c "timeout /t 5 >nul & start http://localhost:3000"
 call npm start
 echo.
-echo [短影工坊已停止] 如果上面有紅色錯誤訊息，請複製給 Claude。
+echo [短影工坊 平價版已停止] 如果上面有紅色錯誤訊息，請複製給 Claude。
 pause

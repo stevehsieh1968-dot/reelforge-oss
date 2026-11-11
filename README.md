@@ -1,4 +1,4 @@
-# 短影工坊 ReelForge OSS（開源省錢版）
+# 短影工坊 平價版（ReelForge OSS）
 
 **謝邦彥 博士 設計**
 
