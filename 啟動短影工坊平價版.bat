@@ -2,6 +2,16 @@
 chcp 65001 >nul
 title 短影工坊 平價版
 cd /d "%~dp0"
+rem 放在桌面或其他地方也能用：自動找到程式資料夾
+if not exist package.json (
+  if exist "%USERPROFILE%\reelforge-oss\package.json" (
+    cd /d "%USERPROFILE%\reelforge-oss"
+  ) else (
+    echo [錯誤] 找不到程式資料夾 %USERPROFILE%\reelforge-oss
+    pause
+    exit /b 1
+  )
+)
 echo ============================================================
 echo   短影工坊 平價版：安裝、設定、啟動 一次完成
 echo ============================================================
