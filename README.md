@@ -18,20 +18,24 @@
 
 ---
 
-## 一、Windows 安裝（第一次）
+## 一、Windows 安裝與啟動（只要一個檔案）
 
-1. 用系統管理員身分打開 PowerShell，安裝基本工具：
+1. 從 GitHub 下載：
    ```powershell
-   winget install OpenJS.NodeJS.LTS Gyan.FFmpeg Git.Git Python.Python.3.12
+   cd $env:USERPROFILE
+   git clone https://github.com/stevehsieh1968-dot/reelforge-oss.git
    ```
-2. 把這個專案放在例如 `C:\Users\你的帳號\reelforge-oss`。
-3. 雙擊 **`安裝配音服務.bat`**（安裝免費的本機配音，約 1 分鐘）。
-4. 雙擊 **`啟動短影工坊.bat`**。第一次會自動打開 `.env`，填入：
-   - `GEMINI_API_KEY`：寫文案用（https://aistudio.google.com/apikey）
-   - `PIXABAY_API_KEY`：免費影片庫（到 https://pixabay.com/api/docs/ 註冊登入，頁面上就會顯示你的 key）
-5. 存檔後再雙擊一次 **`啟動短影工坊.bat`**，瀏覽器會打開 http://localhost:3000 。
+2. 雙擊 **`啟動短影工坊.bat`**，它會自動：
+   - 缺 Node.js／FFmpeg／Python 時用 winget 安裝（裝完會請你重開一次）
+   - 從 GitHub 更新程式、安裝套件、安裝本機配音服務
+   - 建立或升級 `.env`（舊設定會保留，備份在 `.env.bak`）
+   - 還沒填金鑰時打開記事本，請填：
+     - `GEMINI_API_KEY`：寫文案用（https://aistudio.google.com/apikey）
+     - `PIXABAY_API_KEY`：免費影片庫（到 https://pixabay.com/api/docs/ 註冊登入，頁面上就會顯示你的 key）
+   - 全部就緒後啟動，瀏覽器自動打開 http://localhost:3000
+3. 之後每次使用，一樣只要雙擊 **`啟動短影工坊.bat`**。
 
-之後每次使用，只要雙擊 **`啟動短影工坊.bat`**：它會一起開啟配音服務（最小化的「ReelForge-TTS」視窗）。
+`安裝BreezyVoice.bat` 是選用的進階功能（複製說書人自己的聲音），一般使用不需要。
 
 > 原版的 `reelforge` 資料夾不受影響，兩個版本可以並存，但同時只能開一個（都用 3000 埠）。
 

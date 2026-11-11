@@ -88,7 +88,7 @@ def edge_tts_file(text, voice_key, out_mp3):
     try:
         import edge_tts
     except ImportError:
-        raise RuntimeError("沒有安裝 edge-tts，請執行「安裝配音服務.bat」")
+        raise RuntimeError("沒有安裝 edge-tts，請重新執行「啟動短影工坊.bat」")
     name, rate, pitch = EDGE_VOICES.get(voice_key) or EDGE_VOICES["female-warm"]
 
     async def go():
