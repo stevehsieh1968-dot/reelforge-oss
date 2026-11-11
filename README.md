@@ -9,8 +9,8 @@
 |---|---|---|---|
 | 文案、分鏡、改寫 | Gemini Flash | Gemini Flash（每支不到 NT$3）或本機 Ollama（免費） | `TEXT_PROVIDER` |
 | 國語配音 | Gemini TTS | 本機配音服務：Edge 台灣國語語音，或聯發科 **BreezyVoice**（開源） | `TTS_PROVIDER`、`TTS_ENGINE` |
-| AI 動態畫面 | Gemini Omni（約 US$0.10／秒） | **Pexels 免費實拍影片庫** | `VIDEO_PROVIDER` |
-| AI 補圖 | nano-banana（US$0.034／張） | **Pexels 免費圖庫** | `IMAGE_PROVIDER` |
+| AI 動態畫面 | Gemini Omni（約 US$0.10／秒） | **Pixabay 免費實拍影片庫**（或 Pexels） | `VIDEO_PROVIDER` |
+| AI 補圖 | nano-banana（US$0.034／張） | **Pixabay 免費圖庫**（或 Pexels） | `IMAGE_PROVIDER` |
 | 說書人對嘴 | Gemini Omni | 照片＋鏡頭推移＋配音 | `LIPSYNC_PROVIDER` |
 | 合成、字幕、配樂 | FFmpeg | FFmpeg（不變） | — |
 
@@ -28,19 +28,20 @@
 3. 雙擊 **`安裝配音服務.bat`**（安裝免費的本機配音，約 1 分鐘）。
 4. 雙擊 **`啟動短影工坊.bat`**。第一次會自動打開 `.env`，填入：
    - `GEMINI_API_KEY`：寫文案用（https://aistudio.google.com/apikey）
-   - `PEXELS_API_KEY`：免費影片庫（https://www.pexels.com/api/ 註冊後馬上拿到）
+   - `PIXABAY_API_KEY`：免費影片庫（到 https://pixabay.com/api/docs/ 註冊登入，頁面上就會顯示你的 key）
 5. 存檔後再雙擊一次 **`啟動短影工坊.bat`**，瀏覽器會打開 http://localhost:3000 。
 
 之後每次使用，只要雙擊 **`啟動短影工坊.bat`**：它會一起開啟配音服務（最小化的「ReelForge-TTS」視窗）。
 
 > 原版的 `reelforge` 資料夾不受影響，兩個版本可以並存，但同時只能開一個（都用 3000 埠）。
 
-## 二、畫面怎麼來（VIDEO_PROVIDER=pexels）
+## 二、畫面怎麼來（VIDEO_PROVIDER=pixabay）
 
-- 「AI 動態」場景：AI 先把場景描述變成英文關鍵字（例如 `woman drinking coffee cafe`），到 Pexels 找一段直式實拍影片，自動裁成 1080×1920、配合旁白長度。
-- 你上傳的圖：每張圖在**第一次出現的場景**照樣使用（鏡頭推移），其他 AI 動態場景用影片庫畫面，避免同一張圖重複出現。想讓上傳過圖的場景也換成影片庫，設 `PEXELS_REPLACE_UPLOADS=1`。
+- 「AI 動態」場景：AI 先把場景描述變成英文關鍵字（例如 `woman drinking coffee cafe`），到 Pixabay 找一段實拍影片（直式優先；橫式的會裁中間），自動裁成 1080×1920、配合旁白長度。
+- 你上傳的圖：每張圖在**第一次出現的場景**照樣使用（鏡頭推移），其他 AI 動態場景用影片庫畫面，避免同一張圖重複出現。想讓上傳過圖的場景也換成影片庫，設 `STOCK_REPLACE_UPLOADS=1`。
 - 不滿意某個場景的畫面：在修改頁選那個場景「換畫面」，會換成下一段搜尋結果。
-- 每段影片的來源網址和作者都記在 `project.json` 的 `cost.items`（type 為 `stock`）。Pexels 授權可免費商用、不需標示來源，但**不可暗示畫面中的人物代言你的產品**，也不能單獨轉賣素材。
+- 每段影片的來源網址和作者都記在 `project.json` 的 `cost.items`（type 為 `stock`）。Pixabay／Pexels 素材可免費商用、不需標示來源，但**不可暗示畫面中的人物代言你的產品**，也不能單獨轉賣素材。
+- Pexels 目前暫停核發新的 API 金鑰；已經有金鑰的人可以設 `VIDEO_PROVIDER=pexels`、`IMAGE_PROVIDER=pexels`。
 - `VIDEO_PROVIDER=kenburns`：完全不用網路素材，全部用鏡頭推移（最快）。
 
 ## 三、配音（TTS_PROVIDER=local）
@@ -142,7 +143,7 @@ docker compose up -d --build
 | 設定 | 初版費用 | 修改一個場景 |
 |---|---|---|
 | 原版高階版（全部 Omni） | 約 NT$600 | 約 NT$60 |
-| **開源版預設**（Gemini 文案＋Pexels＋本機配音） | **約 NT$1–3** | **約 NT$0.1** |
+| **開源版預設**（Gemini 文案＋Pixabay＋本機配音） | **約 NT$1–3** | **約 NT$0.1** |
 | 開源版＋Ollama 文案 | NT$0 | NT$0 |
 | 混合：只有 2 個關鍵場景用 Omni（`VIDEO_PROVIDER=gemini` 並選經濟版） | 約 NT$120 | 約 NT$60 |
 
@@ -183,7 +184,7 @@ src/
   server.js    API 路由、修改次數規則、上傳
   pipeline.js  影片產生流程：配音 → 對時 → 畫面 → 字幕 → 合成，含快取
   gemini.js    文案、改寫（Gemini 或 OpenAI 相容服務）、Gemini TTS／Omni 呼叫
-  providers.js 來源切換：本機配音、Pexels 影片庫／圖庫、Gemini（付費）
+  providers.js 來源切換：本機配音、Pixabay／Pexels 影片庫與圖庫、Gemini（付費）
   media.js     FFmpeg 工具：鏡頭推移、片段對時、字幕 ASS、混音
   store.js     檔案型資料庫
   queue.js     任務佇列

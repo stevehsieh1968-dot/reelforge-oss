@@ -15,7 +15,7 @@ call npm install --no-audit --no-fund --loglevel=error
 if not exist .env (
   copy .env.example .env >nul
   echo.
-  echo [第一次使用] 已建立 .env，請用記事本打開，填入 GEMINI_API_KEY 和 PEXELS_API_KEY 後再執行一次。
+  echo [第一次使用] 已建立 .env，請用記事本打開，填入 GEMINI_API_KEY 和 PIXABAY_API_KEY 後再執行一次。
   notepad .env
   pause
   exit /b 0

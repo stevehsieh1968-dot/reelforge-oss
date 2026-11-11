@@ -48,15 +48,16 @@ export const config = {
   // 配音：local（本機配音服務：edge 免費微軟語音／breezy 聯發科 BreezyVoice）｜gemini
   ttsProvider: (process.env.TTS_PROVIDER || 'local').toLowerCase(),
   localTtsUrl: (process.env.LOCAL_TTS_URL || 'http://127.0.0.1:5100').replace(/\/$/, ''),
-  // AI 動態畫面：pexels（免費實拍影片庫）｜kenburns（只用鏡頭推移）｜gemini（Omni，付費）
-  videoProvider: (process.env.VIDEO_PROVIDER || 'pexels').toLowerCase(),
-  // AI 補圖：pexels（免費圖庫）｜gemini（nano-banana，付費）｜none
-  imageProvider: (process.env.IMAGE_PROVIDER || 'pexels').toLowerCase(),
+  // AI 動態畫面：pixabay／pexels（免費實拍影片庫）｜kenburns（只用鏡頭推移）｜gemini（Omni，付費）
+  videoProvider: (process.env.VIDEO_PROVIDER || 'pixabay').toLowerCase(),
+  // AI 補圖：pixabay／pexels（免費圖庫）｜gemini（nano-banana，付費）｜none
+  imageProvider: (process.env.IMAGE_PROVIDER || 'pixabay').toLowerCase(),
   // 說書人對嘴：off（照片＋鏡頭推移＋配音，免費）｜gemini（Omni，付費）
   lipsyncProvider: (process.env.LIPSYNC_PROVIDER || 'off').toLowerCase(),
+  pixabayApiKey: process.env.PIXABAY_API_KEY || '',
   pexelsApiKey: process.env.PEXELS_API_KEY || '',
   // 場景有自己上傳的圖時，仍然換成影片庫畫面（預設不換：保留你的產品圖，用鏡頭推移）
-  pexelsReplaceUploads: process.env.PEXELS_REPLACE_UPLOADS === '1',
+  stockReplaceUploads: (process.env.STOCK_REPLACE_UPLOADS || process.env.PEXELS_REPLACE_UPLOADS) === '1',
 
   // 模擬模式：MOCK=1，或文案要用 Gemini 卻沒有金鑰
   mock: process.env.MOCK === '1' || ((process.env.TEXT_PROVIDER || 'gemini').toLowerCase() === 'gemini' && !process.env.GEMINI_API_KEY),

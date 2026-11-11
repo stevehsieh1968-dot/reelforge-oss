@@ -240,7 +240,7 @@ async function visualFor({ dir, project, idx, seconds, assetsById, placeholder, 
     config.videoProvider === 'gemini' ? asset || !config.videoModel.startsWith('veo') : providers.wantsMotion({ hasOwnImage: ownImage });
   if (sc.motion === 'ai' && useMotion) {
     // 影片庫：一個場景抓一段夠長的實拍影片就好，不用拆鏡頭
-    const stock = config.videoProvider === 'pexels';
+    const stock = providers.STOCK.includes(config.videoProvider);
     const shots = stock ? 1 : Math.max(1, Math.round(secs / config.shotSeconds));
     const shotSecs = secs / shots;
     const veoSecs = stock ? Math.ceil(secs) : shotSecs >= 7 ? 8 : shotSecs >= 5 ? 6 : 4;
@@ -255,7 +255,7 @@ async function visualFor({ dir, project, idx, seconds, assetsById, placeholder, 
           : `${script.motionPrompt}. Continue this exact scene from this frame (shot ${k + 1} of ${shots}): the action keeps progressing naturally, same people, same outfits, same place and lighting.`;
       const rawKey =
         k === 0
-          ? hash('veo', asset?.file || `t2v:${script.visual}`, script.motionPrompt, variant, veoSecs, stock ? `pexels:${query}:${idx}` : config.videoModel, config.mock)
+          ? hash('veo', asset?.file || `t2v:${script.visual}`, script.motionPrompt, variant, veoSecs, stock ? `${config.videoProvider}:${query}:${idx}` : config.videoModel, config.mock)
           : hash('veo-cont', prev.key, prompt, veoSecs, config.videoModel, config.mock);
       const raw = path.join(dir, 'cache', `veo-${rawKey}.mp4`);
       const blocked = path.join(dir, 'cache', `veo-${rawKey}.blocked`);
@@ -287,7 +287,7 @@ async function visualFor({ dir, project, idx, seconds, assetsById, placeholder, 
           }
           const got = await media.duration(tmp).catch(() => veoSecs);
           if (stock) {
-            costLog.push({ type: 'stock', model: 'pexels', scene: idx + 1, query, source: res.info?.url, author: res.info?.author, usd: 0 });
+            costLog.push({ type: 'stock', model: config.videoProvider, scene: idx + 1, query, source: res.info?.url, author: res.info?.author, usd: 0 });
           } else {
             costLog.push({ type: 'video', model: config.videoModel, scene: idx + 1, shot: k + 1, seconds: Math.round(got * 10) / 10, usd: Math.round(got * config.veoPricePerSecond * 1000) / 1000 });
           }
@@ -598,7 +598,7 @@ export async function generateSceneImage(project, idx, extra = '') {
   ].join('\n');
   const id = crypto.randomUUID();
   const tmp = path.join(dir, 'assets', `${id}.img`);
-  const query = config.imageProvider === 'pexels' ? await gemini.stockQuery({ visual: s.visual + (extra ? `；${extra}` : ''), motionPrompt: s.motionPrompt }) : '';
+  const query = providers.STOCK.includes(config.imageProvider) ? await gemini.stockQuery({ visual: s.visual + (extra ? `；${extra}` : ''), motionPrompt: s.motionPrompt }) : '';
   const mime = await providers.generateImage({ prompt, outPath: tmp, query, variant: Math.floor(Math.random() * 6) });
   const file = `${id}${mime === 'image/png' ? '.png' : '.jpg'}`;
   await fs.rename(tmp, path.join(dir, 'assets', file));

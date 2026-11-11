@@ -6,6 +6,8 @@ import * as gemini from './gemini.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const PEXELS = (process.env.PEXELS_API_BASE || 'https://api.pexels.com').replace(/\/$/, ''); // 測試時可指向假的服務
+const PIXABAY = (process.env.PIXABAY_API_BASE || 'https://pixabay.com').replace(/\/$/, '');
+export const STOCK = ['pixabay', 'pexels'];
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
 /* ================= 配音 ================= */
@@ -142,12 +144,78 @@ async function pexelsPhoto({ query, variant = 0, outPath }) {
   return { id: photo.id, url: photo.url, author: photo.photographer };
 }
 
+/* ================= Pixabay 免費影片庫／圖庫 ================= */
+// 文件：https://pixabay.com/api/docs/ （金鑰放在網址參數 key；請求太多會回 429）
+
+async function pixabay(url) {
+  if (!config.pixabayApiKey) throw httpError(400, '沒有設定 PIXABAY_API_KEY：請到 https://pixabay.com/api/docs/ 登入後免費取得，填進 .env');
+  const full = `${url}&key=${encodeURIComponent(config.pixabayApiKey)}`;
+  for (let i = 0; i < 4; i++) {
+    const r = await fetch(full, { signal: AbortSignal.timeout(30000) });
+    if (r.status === 429) {
+      await sleep(5000 * (i + 1));
+      continue;
+    }
+    if (!r.ok) throw new Error(`Pixabay 搜尋失敗（${r.status}）：${(await r.text()).slice(0, 200)}`);
+    return r.json();
+  }
+  throw new Error('Pixabay 一直回傳「請求太多」，請稍後再試');
+}
+
+async function searchLooseWith(fetcher, make, query, pick) {
+  let words = String(query || '').split(/\s+/).filter(Boolean);
+  if (!words.length) words = ['lifestyle'];
+  while (words.length) {
+    const list = pick(await fetcher(make(words.join(' '))));
+    if (list.length) return list;
+    words = words.slice(0, -1);
+  }
+  return pick(await fetcher(make('people lifestyle')));
+}
+
+// Pixabay 影片沒有「直式」篩選：直式的排前面，橫式的會由 FFmpeg 裁中間
+async function pixabayVideo({ query, seconds, variant = 0, outPath }) {
+  const list = await searchLooseWith(
+    pixabay,
+    (q) => `${PIXABAY}/api/videos/?q=${encodeURIComponent(q)}&video_type=film&safesearch=true&per_page=30`,
+    query,
+    (j) => (j.hits || []).filter((h) => h.videos && Object.values(h.videos).some((v) => v?.url))
+  );
+  if (!list.length) throw new Error(`影片庫找不到「${query}」的畫面`);
+  const tall = (h) => {
+    const v = h.videos.large?.url ? h.videos.large : h.videos.medium;
+    return (v?.height || 0) >= (v?.width || 1);
+  };
+  const ranked = [...list].sort(
+    (a, b) => tall(b) - tall(a) || (b.duration >= seconds) - (a.duration >= seconds) || Math.abs(a.duration - seconds) - Math.abs(b.duration - seconds)
+  );
+  const hit = ranked[variant % ranked.length];
+  // 挑高度最接近 1920 的版本（large 常是 1080p；medium 720p；4K 太慢不用）
+  const files = ['large', 'medium', 'small', 'tiny'].map((k) => hit.videos[k]).filter((v) => v?.url);
+  const file = files.sort((a, b) => Math.abs(Math.max(a.height, a.width) - 1920) - Math.abs(Math.max(b.height, b.width) - 1920))[0];
+  await download(file.url, outPath);
+  return { id: hit.id, url: hit.pageURL, author: hit.user, duration: hit.duration };
+}
+
+async function pixabayPhoto({ query, variant = 0, outPath }) {
+  const list = await searchLooseWith(
+    pixabay,
+    (q) => `${PIXABAY}/api/?q=${encodeURIComponent(q)}&image_type=photo&orientation=vertical&safesearch=true&per_page=30`,
+    query,
+    (j) => (j.hits || []).filter((h) => h.largeImageURL || h.webformatURL)
+  );
+  if (!list.length) throw new Error(`圖庫找不到「${query}」的照片`);
+  const hit = list[variant % list.length];
+  await download(hit.largeImageURL || hit.webformatURL, outPath);
+  return { id: hit.id, url: hit.pageURL, author: hit.user };
+}
+
 /* ================= AI 畫面（場景動態） ================= */
 
 // 這個場景要不要走「AI 動態」那條路（kenburns 模式一律直接鏡頭推移）
 export function wantsMotion({ hasOwnImage }) {
   if (config.videoProvider === 'kenburns') return false;
-  if (config.videoProvider === 'pexels') return !hasOwnImage || config.pexelsReplaceUploads;
+  if (STOCK.includes(config.videoProvider)) return !hasOwnImage || config.stockReplaceUploads;
   return true;
 }
 
@@ -161,6 +229,10 @@ export async function sceneVideo({ imagePath, mime, prompt, outPath, seconds, qu
     const info = await pexelsVideo({ query, seconds, variant, outPath });
     return { usd: 0, info };
   }
+  if (config.videoProvider === 'pixabay') {
+    const info = await pixabayVideo({ query, seconds, variant, outPath });
+    return { usd: 0, info };
+  }
   throw Object.assign(new Error('鏡頭推移模式'), { safety: true });
 }
 
@@ -170,7 +242,8 @@ export async function generateImage({ prompt, outPath, query, variant = 0 }) {
   if (config.imageProvider === 'gemini' || config.mock) return gemini.generateImage({ prompt, outPath });
   if (config.imageProvider === 'none') throw httpError(400, '目前設定不補圖（IMAGE_PROVIDER=none），請自己上傳圖片');
   const q = query || (await gemini.stockQuery({ visual: prompt, motionPrompt: prompt }));
-  await pexelsPhoto({ query: q, variant, outPath });
+  if (config.imageProvider === 'pexels') await pexelsPhoto({ query: q, variant, outPath });
+  else await pixabayPhoto({ query: q, variant, outPath });
   return 'image/jpeg';
 }
 export const imagePrice = () => (config.imageProvider === 'gemini' && !config.mock ? config.imagePrice : 0);
