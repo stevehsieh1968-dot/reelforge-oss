@@ -10,6 +10,7 @@ API（給 Node 主程式呼叫）：
   GET  /health                      目前引擎狀態
   POST /tts     {text, voice}       回傳 WAV／MP3 音檔
   POST /voices  {name, source, transcript}   建立複製聲音（source 是 base64 WAV），回傳 {id}
+  POST /talk    {text, voice, image, out}    說書人對嘴：配音＋SadTalker，輸出有聲音的 MP4 到 out
 """
 import asyncio
 import base64
@@ -41,7 +42,7 @@ def load_env():
                 continue
             k, v = line.split("=", 1)
             env[k.strip()] = v.strip().strip('"').strip("'")
-    env.update({k: v for k, v in os.environ.items() if k.startswith(("TTS_", "BREEZY_"))})
+    env.update({k: v for k, v in os.environ.items() if k.startswith(("TTS_", "BREEZY_", "SADTALKER_"))})
     return env
 
 
@@ -51,6 +52,9 @@ PORT = int(ENV.get("TTS_PORT") or 5100)
 HOST = ENV.get("TTS_HOST") or "127.0.0.1"
 BREEZY_DIR = Path(ENV.get("BREEZY_DIR") or (ROOT / "BreezyVoice"))
 BREEZY_PYTHON = ENV.get("BREEZY_PYTHON") or str(BREEZY_DIR / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+SADTALKER_DIR = Path(ENV.get("SADTALKER_DIR") or (ROOT / "SadTalker"))
+SADTALKER_PYTHON = ENV.get("SADTALKER_PYTHON") or str(SADTALKER_DIR / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+SADTALKER_ENHANCE = (ENV.get("SADTALKER_ENHANCE") or "0") == "1"
 
 # 內建聲線：Edge 台灣國語聲音＋語速／音高
 #（breezy 引擎會先用這個聲音唸一段參考句，再交給 BreezyVoice 模仿，聲音更自然）
@@ -68,6 +72,7 @@ EDGE_VOICES = {
 REF_TEXT = "大家好，歡迎收看今天的影片。接下來我會用簡單的方式，跟你分享一個實用又溫暖的小故事，希望你會喜歡。"
 
 breezy_lock = threading.Lock()  # 顯卡只有 4GB：一次只跑一句
+gpu_lock = threading.Lock()  # SadTalker 也用顯卡：一次只做一段
 
 
 class UserError(Exception):
@@ -175,6 +180,51 @@ def synthesize(text, voice_key):
         return out.read_bytes(), "audio/mpeg"
 
 
+# ---------------- SadTalker 說書人對嘴 ----------------
+def sadtalker_ready():
+    return (SADTALKER_DIR / "inference.py").exists() and Path(SADTALKER_PYTHON).exists() and (SADTALKER_DIR / "checkpoints").exists()
+
+
+def talk(text, voice_key, image, out):
+    if not sadtalker_ready():
+        raise UserError("SADTALKER_NOT_INSTALLED: 還沒安裝 SadTalker，請執行「安裝SadTalker對嘴.bat」")
+    image, out = Path(image), Path(out)
+    if not image.exists():
+        raise UserError(f"找不到說書人照片：{image}")
+    audio, mime = synthesize(text, voice_key)
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        raw = td / ("in.mp3" if "mpeg" in mime else "in.wav")
+        raw.write_bytes(audio)
+        wav = td / "speech.wav"
+        ffmpeg("-i", str(raw), "-ar", "16000", "-ac", "1", str(wav))
+        res = td / "res"
+        cmd = [
+            SADTALKER_PYTHON, "inference.py",
+            "--driven_audio", str(wav),
+            "--source_image", str(image),
+            "--result_dir", str(res),
+            "--still",               # 頭不要晃太大，適合說書
+            "--preprocess", "full",  # 保留整張照片（不只裁臉）
+            "--size", "256",         # 4GB 顯示記憶體用 256
+        ]
+        if SADTALKER_ENHANCE:
+            cmd += ["--enhancer", "gfpgan"]
+        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+        with gpu_lock:
+            r = subprocess.run(cmd, cwd=str(SADTALKER_DIR), env=env, capture_output=True, timeout=1800)
+        vids = sorted(res.rglob("*.mp4"), key=lambda p: p.stat().st_mtime)
+        if r.returncode != 0 or not vids:
+            err = (r.stderr or r.stdout).decode("utf-8", "ignore")[-800:]
+            if "face" in err.lower() and ("detect" in err.lower() or "no " in err.lower()):
+                raise UserError("SadTalker 在照片裡找不到臉：請換一張正面、臉部清楚的照片")
+            raise RuntimeError(f"SadTalker 失敗：{err}")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        # 用原始配音重新合成聲音，確保音質與長度正確
+        ffmpeg("-i", str(vids[-1]), "-i", str(wav), "-map", "0:v:0", "-map", "1:a:0",
+               "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-c:a", "aac", "-shortest", str(out))
+
+
 def create_voice(name, source_b64, transcript):
     if ENGINE != "breezy":
         raise UserError("複製說書人的聲音需要 BreezyVoice：請在 .env 設 TTS_ENGINE=breezy，並執行「安裝BreezyVoice.bat」")
@@ -210,7 +260,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith("/health"):
-            return self._send(200, {"ok": True, "engine": ENGINE, "breezyInstalled": breezy_ready(), "voices": list(EDGE_VOICES)})
+            return self._send(200, {"ok": True, "engine": ENGINE, "breezyInstalled": breezy_ready(), "sadtalkerInstalled": sadtalker_ready(), "voices": list(EDGE_VOICES)})
         self._send(404, "not found")
 
     def do_POST(self):
@@ -219,6 +269,10 @@ class Handler(BaseHTTPRequestHandler):
                 b = self._json()
                 data, mime = synthesize(b.get("text"), b.get("voice") or "female-warm")
                 return self._send(200, data, mime)
+            if self.path.startswith("/talk"):
+                b = self._json()
+                talk(b.get("text"), b.get("voice") or "female-warm", b.get("image") or "", b.get("out") or "")
+                return self._send(200, {"ok": True})
             if self.path.startswith("/voices"):
                 b = self._json()
                 if not b.get("source"):
@@ -240,5 +294,5 @@ if __name__ == "__main__":
         data, mime = synthesize("你好，這是配音測試。", "female-warm")
         print("ok", mime, len(data))
         sys.exit(0)
-    print(f"本機配音服務已啟動：http://{HOST}:{PORT}  引擎：{ENGINE}" + ("（BreezyVoice 已安裝）" if breezy_ready() else ""), flush=True)
+    print(f"本機配音服務已啟動：http://{HOST}:{PORT}  引擎：{ENGINE}" + ("（BreezyVoice 已安裝）" if breezy_ready() else "") + ("（SadTalker 對嘴已安裝）" if sadtalker_ready() else "（SadTalker 對嘴未安裝）"), flush=True)
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

@@ -63,6 +63,13 @@ async function placeholderImage(dir) {
 }
 
 /* ---------- 1. 配音 ---------- */
+// 聲線：內建（Aoede 等）或說書人的自訂聲音（voice_… / local_…）
+function voiceNameOf(settings) {
+  return settings.voice === 'narrator' && settings.narratorVoiceId
+    ? settings.narratorVoiceId
+    : (config.voices[settings.voice] || Object.values(config.voices)[0]).voiceName;
+}
+
 export async function narrationFor(dir, scene, settings, idx) {
   // 說書人自己錄的聲音：直接用，不呼叫 AI 配音
   if (scene.voiceFile) {
@@ -72,7 +79,7 @@ export async function narrationFor(dir, scene, settings, idx) {
     return { file: out, key, seconds: await media.duration(out), idx, recorded: true };
   }
   // 聲線：內建（Aoede 等）或說書人的自訂聲音（voice_…）
-  const voiceName = settings.voice === 'narrator' && settings.narratorVoiceId ? settings.narratorVoiceId : (config.voices[settings.voice] || Object.values(config.voices)[0]).voiceName;
+  const voiceName = voiceNameOf(settings);
   // v2：新版配音（只送旁白、正確解碼、修頭尾）；舊快取不再沿用
   const key = hash('tts-v2', scene.narration, voiceName, config.ttsProvider === 'gemini' ? config.ttsModel : config.ttsProvider, config.mock, scene.ttsVariant || 0);
   const out = path.join(dir, 'cache', `tts-${key}.wav`);
@@ -140,14 +147,16 @@ function lipsyncVoiceDesc(brand) {
 }
 
 // 回傳 { video, audio, seconds, key }；被安全過濾回傳 null（改用一般說書人做法）
-async function lipsyncFor({ dir, text, idx, variant, narrator, brand, costLog }) {
-  const chunks = splitForLipsync(text);
+async function lipsyncFor({ dir, text, idx, variant, narrator, brand, costLog, voice }) {
+  const local = config.lipsyncProvider !== 'gemini';
+  // 本機對嘴（SadTalker）：整段旁白一次做完，聲音用目前選的配音聲線
+  const chunks = local ? (text.replace(/[\p{P}\s]/gu, '') ? [text] : []) : splitForLipsync(text);
   if (!chunks.length) return null;
-  const voiceDesc = lipsyncVoiceDesc(brand);
+  const voiceDesc = local ? `local:${voice}` : lipsyncVoiceDesc(brand);
   const parts = [];
   for (const [k, chunk] of chunks.entries()) {
     const est = Math.min(15, Math.max(3, Math.ceil([...chunk].length / 4.2 + 1.2)));
-    const key = hash('talk', path.basename(narrator.photo), chunk, voiceDesc, est, variant, config.lipsyncModel, config.mock);
+    const key = hash('talk', path.basename(narrator.photo), chunk, voiceDesc, est, variant, local ? config.lipsyncProvider : config.lipsyncModel, config.mock);
     const raw = path.join(dir, 'cache', `talk-${key}.mp4`);
     const blocked = path.join(dir, 'cache', `talk-${key}.blocked`);
     if (await media.exists(blocked)) return null;
@@ -164,17 +173,22 @@ async function lipsyncFor({ dir, text, idx, variant, narrator, brand, costLog })
           throw e;
         }
         try {
-          await gemini.talkingVideo({ imagePath: narrator.photo, mime: narrator.mime, text: chunk, voiceDesc, seconds: est, outPath: tmp });
+          await providers.talkingVideo({ imagePath: narrator.photo, mime: narrator.mime, text: chunk, voiceDesc, voice, seconds: est, outPath: tmp });
         } catch (e) {
           if (e.safety) await fs.writeFile(blocked, e.message);
           throw e;
         }
         const got = await media.duration(tmp).catch(() => est);
+        if (local) return;
         costLog.push({ type: 'lipsync', model: config.lipsyncModel, scene: idx + 1, shot: k + 1, seconds: Math.round(got * 10) / 10, usd: Math.round(got * config.lipsyncPricePerSecond * 1000) / 1000 });
       });
     } catch (e) {
       if (e.safety) {
         console.warn(`[render] 場景 ${idx + 1} 對嘴影片被安全過濾，改用一般說書人做法`);
+        return null;
+      }
+      if (e.fallback) {
+        console.warn(`[render] 場景 ${idx + 1} 沒有做對嘴：${e.message}`);
         return null;
       }
       throw e;
@@ -358,7 +372,7 @@ export async function render(projectId, { note = '', regenerated = [], isRevisio
     let lipDone = 0;
     await setJob(projectId, { step: `產生說書人對嘴影片 0/${lipIdx.length}（需數分鐘）`, progress: 3 });
     await limitAll(lipIdx, config.mock ? 2 : config.veoConcurrency, async (i) => {
-      lip[i] = await lipsyncFor({ dir, text: merged[i].narration, idx: i, variant: project.scenes[i].variant || 0, narrator, brand: brandV, costLog });
+      lip[i] = await lipsyncFor({ dir, text: merged[i].narration, idx: i, variant: project.scenes[i].variant || 0, narrator, brand: brandV, costLog, voice: voiceNameOf(settings) });
       if (!lip[i]) warnings.push(i + 1);
       lipDone++;
       await setJob(projectId, { step: `產生說書人對嘴影片 ${lipDone}/${lipIdx.length}`, progress: 3 + Math.round((lipDone / lipIdx.length) * 10) });

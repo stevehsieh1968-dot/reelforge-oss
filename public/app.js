@@ -143,23 +143,28 @@ function narratorPanel() {
 }
 
 function lipsyncField() {
-  if (cfg.providers && cfg.providers.lipsync !== 'gemini') {
-    return `<div class="field"><span class="small muted">說書人出鏡：目前用「照片＋鏡頭推移＋配音」（免費）。要真人對嘴，請在 .env 設 LIPSYNC_PROVIDER=gemini（付費）。</span></div>`;
-  }
   const on = !!brandInfo.narratorLipsync;
+  const prov = cfg.providers?.lipsync || 'gemini';
+  const paid = prov === 'gemini';
   const rate = cfg.pricing?.lipsyncPerSecond ?? 0.07;
   const twd45 = Math.round(45 * rate * (cfg.pricing?.usdToTwd || 32));
   const voices = cfg.lipsyncVoices || {};
-  return `<div class="field lipbox${on ? ' on' : ''}">
-      <label class="row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="lipOn" ${on ? 'checked' : ''}> <strong>真人對嘴（Omni）</strong></label>
-      <span class="small muted">說書人出鏡的場景，由 Google Gemini 影片模型依照片和台詞一次做出「說話的畫面＋聲音」，嘴型會對上。
+  const desc = paid
+    ? `說書人出鏡的場景，由 Google Gemini 影片模型依照片和台詞一次做出「說話的畫面＋聲音」，嘴型會對上。
         聲音由 AI 依下方類型產生（Google 目前不開放用自己的聲音對嘴），自己錄音的場景不受影響。
-        費用約 US$${rate}／秒，例如說書人出鏡 45 秒約 NT$${twd45}。</span>
-      <div class="row" style="gap:6px;flex-wrap:wrap">
+        費用約 US$${rate}／秒，例如說書人出鏡 45 秒約 NT$${twd45}。`
+    : prov === 'off'
+      ? '目前設定不做對嘴（.env 的 LIPSYNC_PROVIDER=off），說書人出鏡場景用「照片＋鏡頭推移＋配音」。'
+      : `免費本機對嘴（SadTalker）：用說書人照片和配音，在你的電腦上做出會說話、會點頭眨眼的畫面，聲音就是你選的聲線或說書人的聲音。
+        第一次請先執行「安裝SadTalker對嘴.bat」；還沒安裝時會自動改用照片＋鏡頭推移。速度較慢，每段可能要幾分鐘。`;
+  return `<div class="field lipbox${on ? ' on' : ''}">
+      <label class="row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="lipOn" ${on ? 'checked' : ''} ${prov === 'off' ? 'disabled' : ''}> <strong>${paid ? '真人對嘴（Omni）' : '說書人對嘴（免費）'}</strong></label>
+      <span class="small muted">${desc}</span>
+      <div class="row" style="gap:6px;flex-wrap:wrap;${paid ? '' : 'display:none'}">
         <select id="lipVoice" aria-label="對嘴聲音類型" ${on ? '' : 'disabled'}>${Object.entries(voices).map(([k, v]) => `<option value="${k}" ${brandInfo.lipsyncVoice === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
         <input id="lipNote" maxlength="60" placeholder="補充（選填），例如：語速慢一點、帶點笑意" value="${esc(brandInfo.lipsyncVoiceNote || '')}" ${on ? '' : 'disabled'} style="flex:1;min-width:180px">
       </div>
-      <span class="small muted">中文對嘴效果 Google 尚未正式評估，建議先用 1 分鐘影片試做。</span>
+      <span class="small muted">${paid ? '中文對嘴效果 Google 尚未正式評估，建議先用 1 分鐘影片試做。' : '照片請用正面、臉部清楚、沒有遮住嘴巴的半身照。'}</span>
     </div>`;
 }
 

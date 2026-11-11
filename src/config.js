@@ -52,8 +52,8 @@ export const config = {
   videoProvider: (process.env.VIDEO_PROVIDER || 'pixabay').toLowerCase(),
   // AI 補圖：pixabay／pexels（免費圖庫）｜gemini（nano-banana，付費）｜none
   imageProvider: (process.env.IMAGE_PROVIDER || 'pixabay').toLowerCase(),
-  // 說書人對嘴：off（照片＋鏡頭推移＋配音，免費）｜gemini（Omni，付費）
-  lipsyncProvider: (process.env.LIPSYNC_PROVIDER || 'off').toLowerCase(),
+  // 說書人對嘴：sadtalker（本機免費，需先安裝；沒裝會自動改用照片＋鏡頭推移）｜off｜gemini（Omni，付費）
+  lipsyncProvider: (process.env.LIPSYNC_PROVIDER || 'sadtalker').toLowerCase(),
   pixabayApiKey: process.env.PIXABAY_API_KEY || '',
   pexelsApiKey: process.env.PEXELS_API_KEY || '',
   // 場景有自己上傳的圖時，仍然換成影片庫畫面（預設不換：保留你的產品圖，用鏡頭推移）

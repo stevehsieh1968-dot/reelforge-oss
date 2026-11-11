@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import * as providers from './providers.js';
+import * as gemini from './gemini.js';
 import { run } from './media.js';
 import { brandDir, getBrand, saveBrand, narratorPath } from './brand.js';
 
@@ -66,11 +67,12 @@ export async function usePresetPhoto(id) {
   if (!file || !(await fs.stat(path.join(libDir, file)).catch(() => null))) {
     await fs.mkdir(libDir, { recursive: true });
     const tmp = path.join(libDir, `${id}.tmp`);
-    // 內建說書人必須是 AI 生成的虛構人物；圖庫照片是真人，不能拿來當品牌代言人
-    if (config.imageProvider !== 'gemini' && !config.mock) {
-      throw Object.assign(new Error('內建虛擬說書人需要 Gemini 生圖（第一次約 US$0.034，之後重複使用）。請上傳自己的照片，或在 .env 暫時設 IMAGE_PROVIDER=gemini'), { status: 400 });
+    // 內建說書人必須是 AI 生成的虛構人物（圖庫照片是真人，不能拿來當品牌代言人）：
+    // 有 Gemini 金鑰就用 Gemini 生一次（約 NT$1，之後重複使用，不受 IMAGE_PROVIDER 影響）
+    if (!config.geminiApiKey && !config.mock) {
+      throw Object.assign(new Error('內建虛擬說書人需要 GEMINI_API_KEY（第一次生成約 NT$1）。也可以直接「上傳照片」用自己的照片'), { status: 400 });
     }
-    const mime = await providers.generateImage({ prompt: preset.prompt + '. Fictional person, not a celebrity.', outPath: tmp });
+    const mime = await gemini.generateImage({ prompt: preset.prompt + '. Fictional person, not a celebrity.', outPath: tmp });
     file = `narrator-${id}${mime === 'image/png' ? '.png' : '.jpg'}`;
     await fs.rename(tmp, path.join(libDir, file));
     lib.photos[id] = file;

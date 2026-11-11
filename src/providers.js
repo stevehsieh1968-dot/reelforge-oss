@@ -20,11 +20,11 @@ function localVoiceKey(voice) {
   return hit ? hit[0] : 'female-warm';
 }
 
-async function localTts(path, init, label) {
+async function localTts(path, init, label, timeoutMin = 10) {
   let lastErr;
   for (let i = 0; i < 3; i++) {
     try {
-      const r = await fetch(`${config.localTtsUrl}${path}`, { ...init, signal: AbortSignal.timeout(10 * 60 * 1000) });
+      const r = await fetch(`${config.localTtsUrl}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMin * 60 * 1000) });
       if (!r.ok) {
         const msg = (await r.text()).slice(0, 400);
         const e = httpError(r.status >= 500 ? 502 : 400, `${label}失敗：${msg}`);
@@ -250,4 +250,28 @@ export const imagePrice = () => (config.imageProvider === 'gemini' && !config.mo
 
 /* ================= 說書人對嘴 ================= */
 
-export const lipsyncEnabled = () => config.lipsyncProvider === 'gemini';
+// off：不做對嘴｜sadtalker：本機免費（需先安裝 SadTalker）｜gemini：Omni（付費）
+export const lipsyncEnabled = () => config.lipsyncProvider !== 'off';
+
+export async function talkingVideo({ imagePath, mime, text, voiceDesc, voice, seconds, outPath }) {
+  if (config.lipsyncProvider === 'gemini') return gemini.talkingVideo({ imagePath, mime, text, voiceDesc, seconds, outPath });
+  try {
+    await localTts(
+      '/talk',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: localVoiceKey(voice), image: imagePath, out: outPath })
+      },
+      '說書人對嘴',
+      40
+    );
+  } catch (e) {
+    // 還沒安裝 SadTalker、配音服務沒開：這一場改用一般說書人做法，不讓整支影片失敗
+    if (/SADTALKER_NOT_INSTALLED|連不到本機配音服務/.test(e.message)) {
+      throw Object.assign(new Error(e.message.replace('SADTALKER_NOT_INSTALLED:', '').trim()), { fallback: true });
+    }
+    throw e;
+  }
+  return outPath;
+}

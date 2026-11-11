@@ -11,7 +11,7 @@
 | 國語配音 | Gemini TTS | 本機配音服務：Edge 台灣國語語音，或聯發科 **BreezyVoice**（開源） | `TTS_PROVIDER`、`TTS_ENGINE` |
 | AI 動態畫面 | Gemini Omni（約 US$0.10／秒） | **Pixabay 免費實拍影片庫**（或 Pexels） | `VIDEO_PROVIDER` |
 | AI 補圖 | nano-banana（US$0.034／張） | **Pixabay 免費圖庫**（或 Pexels） | `IMAGE_PROVIDER` |
-| 說書人對嘴 | Gemini Omni | 照片＋鏡頭推移＋配音 | `LIPSYNC_PROVIDER` |
+| 說書人對嘴 | Gemini Omni | **SadTalker**（騰訊開源，本機免費對嘴） | `LIPSYNC_PROVIDER` |
 | 合成、字幕、配樂 | FFmpeg | FFmpeg（不變） | — |
 
 每一項都可以在 `.env` 單獨改回 `gemini`，例如只有重要客戶才用 Omni 生成畫面。
@@ -35,7 +35,9 @@
    - 全部就緒後啟動，瀏覽器自動打開 http://localhost:3000
 3. 之後每次使用，一樣只要雙擊 **`啟動短影工坊平價版.bat`**。
 
-`安裝BreezyVoice.bat` 是選用的進階功能（複製說書人自己的聲音），一般使用不需要。
+選用的進階功能（一般使用不需要）：
+- `安裝SadTalker對嘴.bat`：說書人照片會說話（免費對嘴），見下方「說書人」。
+- `安裝BreezyVoice.bat`：複製說書人自己的聲音。
 
 > 原版的 `reelforge` 資料夾不受影響，兩個版本可以並存，但同時只能開一個（都用 3000 埠）。
 
@@ -61,6 +63,21 @@
 模型很小（約 3 億參數），RTX 3050 筆電（4GB）或 CPU 都能跑。目前的做法是每一句都重新載入模型，所以**比 edge 慢很多**，一支影片的配音可能要十幾分鐘；做好的配音會快取，修改時不會重做。
 BreezyVoice 官方以 Linux 為主，Windows 若安裝失敗，可以先用 `edge`，或在 WSL／Docker 安裝。
 內建聲線在 `breezy` 模式下，會先用 Edge 唸一段參考句，再讓 BreezyVoice 模仿，聲音更自然。
+
+## 三之一、說書人照片與免費對嘴（SadTalker）
+
+**說書人照片**：在「品牌設定」或一鍵成片卡片按「⬆ 上傳照片」，用正面、臉部清楚、沒遮住嘴巴的半身照效果最好。
+也可以選「內建說書人」：那是 AI 生成的虛構人物，第一次使用會用你的 Gemini 金鑰生成一次（約 NT$1），之後重複使用。
+
+**免費對嘴**：用 **SadTalker**（騰訊開源，Apache 2.0 授權）把說書人照片做成會說話、會眨眼點頭的畫面，聲音就是你選的聲線或說書人的聲音。
+1. 雙擊 **`安裝SadTalker對嘴.bat`**（約 15–30 分鐘，下載約 3GB；需要 NVIDIA 顯卡 4GB 以上、Python 3.10，沒有會自動安裝）。
+2. 重新執行 `啟動短影工坊平價版.bat`。
+3. 在「品牌設定」勾選 **說書人對嘴（免費）**，用說書人範本做影片即可。
+
+- 速度：比較慢，RTX 3050 筆電上一段說書人場景可能要幾分鐘（只有說書人出鏡的場景會做）。做好的會快取，修改其他場景不會重做。
+- 還沒安裝 SadTalker 時不會失敗：說書人場景自動改用「照片＋鏡頭推移＋配音」。
+- 想要臉更清楚：`.env` 設 `SADTALKER_ENHANCE=1`（會更慢）。
+- 想用付費的 Gemini 真人對嘴：`.env` 設 `LIPSYNC_PROVIDER=gemini`；完全不要對嘴：`LIPSYNC_PROVIDER=off`。
 
 ## 四、完全不用 Gemini（選用）
 
