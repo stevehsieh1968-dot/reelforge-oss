@@ -44,14 +44,31 @@ echo [3/3] 下載模型...
 if not exist checkpoints mkdir checkpoints
 if not exist gfpgan\weights mkdir gfpgan\weights
 set R=https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc
-for %%F in (mapping_00109-model.pth.tar mapping_00229-model.pth.tar SadTalker_V0.0.2_256.safetensors SadTalker_V0.0.2_512.safetensors) do (
-  if not exist checkpoints\%%F curl -L --fail -o checkpoints\%%F %R%/%%F
-)
-if not exist gfpgan\weights\alignment_WFLW_4HG.pth curl -L --fail -o gfpgan\weights\alignment_WFLW_4HG.pth https://github.com/xinntao/facexlib/releases/download/v0.1.0/alignment_WFLW_4HG.pth
-if not exist gfpgan\weights\detection_Resnet50_Final.pth curl -L --fail -o gfpgan\weights\detection_Resnet50_Final.pth https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth
-if not exist gfpgan\weights\GFPGANv1.4.pth curl -L --fail -o gfpgan\weights\GFPGANv1.4.pth https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth
-if not exist gfpgan\weights\parsing_parsenet.pth curl -L --fail -o gfpgan\weights\parsing_parsenet.pth https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth
+set FX=https://github.com/xinntao/facexlib/releases/download
+call :get checkpoints\mapping_00109-model.pth.tar %R%/mapping_00109-model.pth.tar || goto dlfail
+call :get checkpoints\mapping_00229-model.pth.tar %R%/mapping_00229-model.pth.tar || goto dlfail
+call :get checkpoints\SadTalker_V0.0.2_256.safetensors %R%/SadTalker_V0.0.2_256.safetensors || goto dlfail
+call :get checkpoints\SadTalker_V0.0.2_512.safetensors %R%/SadTalker_V0.0.2_512.safetensors || goto dlfail
+call :get gfpgan\weights\alignment_WFLW_4HG.pth %FX%/v0.1.0/alignment_WFLW_4HG.pth || goto dlfail
+call :get gfpgan\weights\detection_Resnet50_Final.pth %FX%/v0.1.0/detection_Resnet50_Final.pth || goto dlfail
+call :get gfpgan\weights\GFPGANv1.4.pth https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth || goto dlfail
+call :get gfpgan\weights\parsing_parsenet.pth %FX%/v0.2.2/parsing_parsenet.pth || goto dlfail
+goto dlok
 
+rem 下載到 .part，完整下載才改名；中斷後重跑會從斷點續傳
+:get
+if exist "%~1" exit /b 0
+curl -L --fail --retry 5 --retry-delay 3 -C - -o "%~1.part" "%~2"
+if errorlevel 1 exit /b 1
+move /y "%~1.part" "%~1" >nul
+exit /b 0
+
+:dlfail
+echo [錯誤] 模型下載失敗（網路不穩）。請再執行一次 安裝SadTalker對嘴.bat，會從中斷的地方繼續下載。
+pause
+exit /b 1
+
+:dlok
 echo.
 echo 測試對嘴（用 SadTalker 內附的範例，約 1–3 分鐘）...
 set PYTHONUTF8=1
