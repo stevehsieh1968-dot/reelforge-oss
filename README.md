@@ -25,7 +25,7 @@
    cd $env:USERPROFILE
    git clone https://github.com/stevehsieh1968-dot/reelforge-oss.git
    ```
-2. 雙擊 **`啟動短影工坊.bat`**，它會自動：
+2. 雙擊 **`啟動短影工坊平價版.bat`**，它會自動：
    - 缺 Node.js／FFmpeg／Python 時用 winget 安裝（裝完會請你重開一次）
    - 從 GitHub 更新程式、安裝套件、安裝本機配音服務
    - 建立或升級 `.env`（舊設定會保留，備份在 `.env.bak`）
@@ -33,7 +33,7 @@
      - `GEMINI_API_KEY`：寫文案用（https://aistudio.google.com/apikey）
      - `PIXABAY_API_KEY`：免費影片庫（到 https://pixabay.com/api/docs/ 註冊登入，頁面上就會顯示你的 key）
    - 全部就緒後啟動，瀏覽器自動打開 http://localhost:3000
-3. 之後每次使用，一樣只要雙擊 **`啟動短影工坊.bat`**。
+3. 之後每次使用，一樣只要雙擊 **`啟動短影工坊平價版.bat`**。
 
 `安裝BreezyVoice.bat` 是選用的進階功能（複製說書人自己的聲音），一般使用不需要。
 

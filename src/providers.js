@@ -36,7 +36,7 @@ async function localTts(path, init, label) {
       if (e.final) throw e;
       lastErr = e;
       if (/ECONNREFUSED|fetch failed/i.test(String(e?.cause?.code || e?.message))) {
-        throw httpError(503, `連不到本機配音服務（${config.localTtsUrl}）：請用「啟動短影工坊.bat」啟動（會一起開配音服務），或在 .env 把 TTS_PROVIDER 改成 gemini`);
+        throw httpError(503, `連不到本機配音服務（${config.localTtsUrl}）：請用「啟動短影工坊平價版.bat」啟動（會一起開配音服務），或在 .env 把 TTS_PROVIDER 改成 gemini`);
       }
       await sleep(1500 * (i + 1));
     }

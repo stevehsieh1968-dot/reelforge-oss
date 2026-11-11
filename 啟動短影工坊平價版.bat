@@ -30,7 +30,7 @@ if not defined PY (
 )
 if defined NEED_RESTART (
   echo.
-  echo [完成安裝] 請「關掉這個視窗」，再雙擊一次 啟動短影工坊.bat（讓新安裝的工具生效）。
+  echo [完成安裝] 請「關掉這個視窗」，再雙擊一次 啟動短影工坊平價版.bat（讓新安裝的工具生效）。
   pause
   exit /b 0
 )
@@ -75,7 +75,7 @@ if defined NEEDKEY (
   echo [請先填金鑰] 記事本會打開 .env，請填入：
   echo     GEMINI_API_KEY=   到 https://aistudio.google.com/apikey 取得
   echo     PIXABAY_API_KEY=  到 https://pixabay.com/api/docs/ 登入後取得
-  echo   存檔、關掉記事本後，再雙擊一次 啟動短影工坊.bat
+  echo   存檔、關掉記事本後，再雙擊一次 啟動短影工坊平價版.bat
   notepad .env
   pause
   exit /b 0
