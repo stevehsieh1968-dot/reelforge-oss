@@ -77,6 +77,12 @@ if errorlevel 1 (
   powershell -NoProfile -ExecutionPolicy Bypass -Command "$t = Get-Content '.env' -Encoding UTF8; $t = $t -replace '^VIDEO_PROVIDER=pexels$','VIDEO_PROVIDER=pixabay' -replace '^IMAGE_PROVIDER=pexels$','IMAGE_PROVIDER=pixabay' -replace '^PEXELS_REPLACE_UPLOADS=','STOCK_REPLACE_UPLOADS='; $t += ''; $t += '# Pixabay free API key: https://pixabay.com/api/docs/'; $t += 'PIXABAY_API_KEY='; [IO.File]::WriteAllLines((Resolve-Path '.env').Path, [string[]]$t, (New-Object Text.UTF8Encoding $false))"
   echo [設定檔已升級] 改用 Pixabay 免費影片庫，舊設定備份在 .env.bak
 )
+findstr /b /c:"SADTALKER_ENHANCE=" .env >nul
+if errorlevel 1 (
+  copy /y .env .env.bak >nul
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$t = Get-Content '.env' -Encoding UTF8; $t = $t -replace '^LIPSYNC_PROVIDER=off$','LIPSYNC_PROVIDER=sadtalker'; $t += ''; $t += '# SadTalker face enhance 0/1'; $t += 'SADTALKER_ENHANCE=0'; [IO.File]::WriteAllLines((Resolve-Path '.env').Path, [string[]]$t, (New-Object Text.UTF8Encoding $false))"
+  echo [設定檔已升級] 說書人對嘴改用免費的 SadTalker
+)
 set NEEDKEY=
 findstr /x /c:"TEXT_PROVIDER=gemini" .env >nul && findstr /x /c:"GEMINI_API_KEY=" .env >nul && set NEEDKEY=1
 findstr /x /c:"VIDEO_PROVIDER=pixabay" .env >nul && findstr /x /c:"PIXABAY_API_KEY=" .env >nul && set NEEDKEY=1
