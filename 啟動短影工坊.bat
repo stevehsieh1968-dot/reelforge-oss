@@ -12,10 +12,23 @@ if exist .git (
 )
 
 call npm install --no-audit --no-fund --loglevel=error
-if not exist .env (
-  copy .env.example .env >nul
+if not exist .env copy .env.example .env >nul
+
+rem ---- 舊版設定檔自動升級：保留已填的金鑰，Pexels 改成 Pixabay、補上 PIXABAY_API_KEY ----
+findstr /b /c:"PIXABAY_API_KEY=" .env >nul
+if errorlevel 1 (
+  copy /y .env .env.bak >nul
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$t = Get-Content '.env' -Encoding UTF8; $t = $t -replace '^VIDEO_PROVIDER=pexels$','VIDEO_PROVIDER=pixabay' -replace '^IMAGE_PROVIDER=pexels$','IMAGE_PROVIDER=pixabay' -replace '^PEXELS_REPLACE_UPLOADS=','STOCK_REPLACE_UPLOADS='; $t += ''; $t += '# Pixabay free API key: https://pixabay.com/api/docs/'; $t += 'PIXABAY_API_KEY='; [IO.File]::WriteAllLines((Resolve-Path '.env').Path, [string[]]$t, (New-Object Text.UTF8Encoding $false))"
+  echo [設定檔已升級] 改用 Pixabay 免費影片庫，舊設定備份在 .env.bak
+)
+
+rem ---- 還沒填金鑰：打開記事本 ----
+set NEEDKEY=
+findstr /x /c:"TEXT_PROVIDER=gemini" .env >nul && findstr /x /c:"GEMINI_API_KEY=" .env >nul && set NEEDKEY=1
+findstr /x /c:"VIDEO_PROVIDER=pixabay" .env >nul && findstr /x /c:"PIXABAY_API_KEY=" .env >nul && set NEEDKEY=1
+if defined NEEDKEY (
   echo.
-  echo [第一次使用] 已建立 .env，請用記事本打開，填入 GEMINI_API_KEY 和 PIXABAY_API_KEY 後再執行一次。
+  echo [請先填金鑰] 用記事本打開 .env，填入 GEMINI_API_KEY 和 PIXABAY_API_KEY，存檔後再執行一次。
   notepad .env
   pause
   exit /b 0
