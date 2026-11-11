@@ -255,23 +255,34 @@ export const lipsyncEnabled = () => config.lipsyncProvider !== 'off';
 
 export async function talkingVideo({ imagePath, mime, text, voiceDesc, voice, seconds, outPath }) {
   if (config.lipsyncProvider === 'gemini') return gemini.talkingVideo({ imagePath, mime, text, voiceDesc, seconds, outPath });
+  // SadTalker 一段常常要好幾分鐘：先送出工作，再每 3 秒查一次進度（避免連線等太久被切斷）
+  // 任何失敗都改用一般說書人做法（照片＋鏡頭推移），不讓整支影片失敗
+  const fallback = (msg) => Object.assign(new Error(String(msg).replace('SADTALKER_NOT_INSTALLED:', '').trim()), { fallback: true });
+  let id;
   try {
-    await localTts(
+    const r = await localTts(
       '/talk',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice: localVoiceKey(voice), image: imagePath, out: outPath })
-      },
-      '說書人對嘴',
-      40
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice: localVoiceKey(voice), image: imagePath, out: outPath }) },
+      '說書人對嘴'
     );
+    id = (await r.json()).id;
   } catch (e) {
-    // 還沒安裝 SadTalker、配音服務沒開：這一場改用一般說書人做法，不讓整支影片失敗
-    if (/SADTALKER_NOT_INSTALLED|連不到本機配音服務/.test(e.message)) {
-      throw Object.assign(new Error(e.message.replace('SADTALKER_NOT_INSTALLED:', '').trim()), { fallback: true });
-    }
-    throw e;
+    throw fallback(e.message);
   }
-  return outPath;
+  const started = Date.now();
+  let misses = 0;
+  while (Date.now() - started < 60 * 60 * 1000) {
+    await sleep(3000);
+    let job;
+    try {
+      job = await (await fetch(`${config.localTtsUrl}/talk/${id}`, { signal: AbortSignal.timeout(30000) })).json();
+      misses = 0;
+    } catch (e) {
+      if (++misses >= 10) throw fallback(`查不到對嘴進度：${e.message}`);
+      continue;
+    }
+    if (job.status === 'done') return outPath;
+    if (job.status === 'error') throw fallback(job.error || '對嘴失敗');
+  }
+  throw fallback('對嘴超過 60 分鐘還沒完成');
 }

@@ -10,7 +10,8 @@ API（給 Node 主程式呼叫）：
   GET  /health                      目前引擎狀態
   POST /tts     {text, voice}       回傳 WAV／MP3 音檔
   POST /voices  {name, source, transcript}   建立複製聲音（source 是 base64 WAV），回傳 {id}
-  POST /talk    {text, voice, image, out}    說書人對嘴：配音＋SadTalker，輸出有聲音的 MP4 到 out
+  POST /talk    {text, voice, image, out}    說書人對嘴（背景執行）：回傳 {id}
+  GET  /talk/<id>                            查進度：{status: running|done|error, error}
 """
 import asyncio
 import base64
@@ -225,6 +226,26 @@ def talk(text, voice_key, image, out):
                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-c:a", "aac", "-shortest", str(out))
 
 
+talk_jobs = {}  # 對嘴工作：SadTalker 常常超過 5 分鐘，改成背景執行＋查進度
+
+
+def start_talk(b):
+    jid = uuid.uuid4().hex[:12]
+    talk_jobs[jid] = {"status": "running", "error": ""}
+
+    def work():
+        try:
+            talk(b.get("text"), b.get("voice") or "female-warm", b.get("image") or "", b.get("out") or "")
+            talk_jobs[jid]["status"] = "done"
+        except Exception as e:
+            if not isinstance(e, UserError):
+                traceback.print_exc()
+            talk_jobs[jid].update(status="error", error=str(e))
+
+    threading.Thread(target=work, daemon=True).start()
+    return jid
+
+
 def create_voice(name, source_b64, transcript):
     if ENGINE != "breezy":
         raise UserError("複製說書人的聲音需要 BreezyVoice：請在 .env 設 TTS_ENGINE=breezy，並執行「安裝BreezyVoice.bat」")
@@ -259,6 +280,9 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(n).decode("utf-8") or "{}")
 
     def do_GET(self):
+        if self.path.startswith("/talk/"):
+            job = talk_jobs.get(self.path.rsplit("/", 1)[-1])
+            return self._send(200, job) if job else self._send(404, "找不到這個對嘴工作（配音服務可能重新啟動過）")
         if self.path.startswith("/health"):
             return self._send(200, {"ok": True, "engine": ENGINE, "breezyInstalled": breezy_ready(), "sadtalkerInstalled": sadtalker_ready(), "voices": list(EDGE_VOICES)})
         self._send(404, "not found")
@@ -270,9 +294,7 @@ class Handler(BaseHTTPRequestHandler):
                 data, mime = synthesize(b.get("text"), b.get("voice") or "female-warm")
                 return self._send(200, data, mime)
             if self.path.startswith("/talk"):
-                b = self._json()
-                talk(b.get("text"), b.get("voice") or "female-warm", b.get("image") or "", b.get("out") or "")
-                return self._send(200, {"ok": True})
+                return self._send(200, {"id": start_talk(self._json())})
             if self.path.startswith("/voices"):
                 b = self._json()
                 if not b.get("source"):
