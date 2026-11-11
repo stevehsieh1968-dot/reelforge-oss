@@ -1,0 +1,21 @@
+services:
+  reelforge:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      LOCAL_TTS_URL: http://tts:5100
+    volumes:
+      - ./data:/data
+    depends_on:
+      - tts
+    restart: unless-stopped
+  # 本機配音服務（edge 引擎；BreezyVoice 請用官方 Docker 另外架）
+  tts:
+    build: ./tts-server
+    env_file: .env
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

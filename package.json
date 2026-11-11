@@ -1,0 +1,21 @@
+{
+  "name": "reelforge-oss",
+  "version": "1.0.0",
+  "description": "短影工坊開源省錢版：輸入需求 → AI 文案 → 上傳素材 → 3 分鐘 9:16 短視頻，每支最多修改 5 次",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test:e2e": "node scripts/e2e.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
